@@ -89,7 +89,7 @@ export class OutputService extends StatefulService<IOutputServiceState> {
     const fOutput = this.state[uniqueId];
 
     if (!fOutput) {
-      console.log(`State is bad!`);
+      console.log('State is bad!');
       console.log(`${uniqueId}`);
       console.log(`${this.state.outputs}`);
     }
