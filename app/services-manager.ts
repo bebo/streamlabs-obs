@@ -61,6 +61,9 @@ import {
   IMutation
 } from 'services/jsonrpc';
 import { JsonrpcService } from './services/jsonrpc/jsonrpc';
+import { OutputService } from 'services/outputs';
+import { ProviderService } from 'services/providers';
+import { EncoderService } from 'services/encoders';
 
 const { ipcRenderer } = electron;
 
@@ -121,7 +124,10 @@ export class ServicesManager extends Service {
     SceneCollectionsStateService,
     TroubleshooterService,
     JsonrpcService,
-    SelectionService
+    SelectionService,
+    OutputService,
+    ProviderService,
+    EncoderService
   };
 
   private instances: Dictionary<Service> = {};
