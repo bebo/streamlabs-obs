@@ -1,3 +1,4 @@
+import { uniq } from 'lodash';
 import { Menu } from './Menu';
 import { ScenesService } from 'services/scenes';
 import { SelectionService } from 'services/selection';
@@ -19,6 +20,29 @@ export class GroupMenu extends Menu {
 
     const selectionSize = this.selectionService.getSize();
     const selectedItem = this.selectionService.getItems()[0];
+    const selectedNodes = this.selectionService.getNodes();
+    const nodesFolders = selectedNodes.map(node => node.parentId || null);
+
+
+    this.append({
+      label: 'Group into Folder',
+      click: () => {
+        this.scenesService.showNameFolder({
+          itemsToGroup: this.selectionService.getIds(),
+          parentId: nodesFolders[0]
+        });
+      },
+      enabled: this.selectionService.canGroupIntoFolder()
+    });
+
+    this.append({
+      label: 'Ungroup Folder',
+      click: () => {
+        this.selectionService.getFolders()[0].ungroup();
+      },
+      enabled: this.selectionService.isSceneFolder()
+    });
+
 
     this.append({
       label: 'Group into Scene',
@@ -44,9 +68,11 @@ export class GroupMenu extends Menu {
       }
       ,
       enabled: (() => {
-        return selectionSize === 1 && selectedItem.getSource().type === 'scene';
+        return !!(selectionSize === 1 && selectedItem && selectedItem.getSource().type === 'scene');
       })()
     });
+
+
   }
 
 }

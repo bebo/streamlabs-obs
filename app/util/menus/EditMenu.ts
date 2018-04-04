@@ -35,7 +35,7 @@ export class EditMenu extends Menu {
 
     if (this.options.selectedSourceId) {
       this.source = this.sourcesService.getSource(this.options.selectedSourceId);
-    } else if (this.options.showSceneItemMenu && this.selectionService.getSize() === 1) {
+    } else if (this.options.showSceneItemMenu && this.selectionService.isSceneItem()) {
       this.source = this.selectionService.getItems()[0].getSource();
     }
 
@@ -87,7 +87,9 @@ export class EditMenu extends Menu {
       this.append({
         label: 'Remove',
         accelerator: 'Delete',
-        click: () => this.selectionService.remove()
+        click: () => {
+          this.selectionService.remove();
+        }
       });
 
       this.append({
@@ -95,36 +97,37 @@ export class EditMenu extends Menu {
         submenu: this.transformSubmenu().menu
       });
 
-      if (this.customizationService.state.experimental.sceneItemsGrouping) {
-        this.append({
-          label: 'Group',
-          submenu: this.groupSubmenu().menu
-        });
+      this.append({
+        label: 'Group',
+        submenu: this.groupSubmenu().menu
+      });
+
+      if (selectedItem) {
+        const visibilityLabel = selectedItem.visible ? 'Hide' : 'Show';
+
+        if (!isMultipleSelection) {
+          this.append({
+            label: visibilityLabel,
+            click: () => {
+              selectedItem.setVisibility(!selectedItem.visible);
+            }
+          });
+        } else {
+          this.append({
+            label: 'Show',
+            click: () => {
+              this.selectionService.setVisibility(true);
+            }
+          });
+          this.append({
+            label: 'Hide',
+            click: () => {
+              this.selectionService.setVisibility(false);
+            }
+          });
+        }
       }
 
-      const visibilityLabel = selectedItem.visible ? 'Hide' : 'Show';
-
-      if (!isMultipleSelection) {
-        this.append({
-          label: visibilityLabel,
-          click: () => {
-            selectedItem.setVisibility(!selectedItem.visible);
-          }
-        });
-      } else {
-        this.append({
-          label: 'Show',
-          click: () => {
-            this.selectionService.setVisibility(true);
-          }
-        });
-        this.append({
-          label: 'Hide',
-          click: () => {
-            this.selectionService.setVisibility(false);
-          }
-        });
-      }
 
 
       if (this.source && this.source.getPropertiesManagerType() === 'widget') {
@@ -142,6 +145,17 @@ export class EditMenu extends Menu {
         });
       }
     }
+
+    if (this.selectionService.isSceneFolder()) {
+      this.append({
+        label: 'Rename',
+        click: () =>
+          this.scenesService.showNameFolder({
+            renameId:  this.selectionService.getFolders()[0].id
+          })
+      });
+    }
+
 
     if (this.source && !isMultipleSelection) {
 
@@ -206,6 +220,7 @@ export class EditMenu extends Menu {
         })
       });
     }
+
   }
 
   private showFilters() {

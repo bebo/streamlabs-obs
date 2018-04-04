@@ -1,10 +1,12 @@
-import { mutation, StatefulService } from './stateful-service';
-import { ScenesService } from './scenes';
-import { SourcesService } from './sources';
-import { shortcut } from './shortcuts';
-import { Inject } from '../util/injector';
-import { SourceFiltersService } from './source-filters';
+import { mutation, StatefulService } from 'services/stateful-service';
+import { ScenesService } from 'services/scenes';
+import { SourcesService } from 'services/sources';
+import { shortcut } from 'services/shortcuts';
+import { Inject } from '../../util/injector';
+import { SourceFiltersService } from 'services/source-filters';
 import { SelectionService } from 'services/selection';
+import { SceneCollectionsService } from 'services/scene-collections';
+import { IClipboardServiceApi } from './clipboard-api';
 
 
 interface IClipboardState {
@@ -13,7 +15,7 @@ interface IClipboardState {
   filterIds: string[];
 }
 
-export class ClipboardService extends StatefulService<IClipboardState> {
+export class ClipboardService extends StatefulService<IClipboardState> implements IClipboardServiceApi {
 
   static initialState: IClipboardState = {
     itemsSceneId: '',
@@ -25,6 +27,14 @@ export class ClipboardService extends StatefulService<IClipboardState> {
   @Inject() private sourcesService: SourcesService;
   @Inject() private sourceFiltersService: SourceFiltersService;
   @Inject() private selectionService: SelectionService;
+  @Inject() private sceneCollectionsService: SceneCollectionsService;
+
+  init() {
+    this.sceneCollectionsService.collectionSwitched.subscribe(() => {
+      this.clear(); // it is not possible to copy/paste between scene collections yet
+    });
+  }
+
 
   @shortcut('Ctrl+C')
   copy() {
@@ -35,6 +45,7 @@ export class ClipboardService extends StatefulService<IClipboardState> {
 
   @shortcut('Ctrl+V')
   pasteReference() {
+    if (!this.hasItems()) return;
     const insertedItems = this.scenesService
       .getScene(this.state.itemsSceneId)
       .getSelection(this.state.sceneItemIds)
@@ -44,6 +55,7 @@ export class ClipboardService extends StatefulService<IClipboardState> {
 
 
   pasteDuplicate() {
+    if (!this.hasItems()) return;
     const insertedItems = this.scenesService
       .getScene(this.state.itemsSceneId)
       .getSelection(this.state.sceneItemIds)
@@ -77,6 +89,11 @@ export class ClipboardService extends StatefulService<IClipboardState> {
     return !!this.state.filterIds.length;
   }
 
+  clear() {
+    this.SET_FILTERS_IDS([]);
+    this.SET_SCENE_ITEMS_IDS([]);
+    this.SET_SCENE_ITEMS_SCENE('');
+  }
 
   @mutation()
   private SET_SCENE_ITEMS_IDS(ids: string[]) {

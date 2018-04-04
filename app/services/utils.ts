@@ -1,6 +1,6 @@
 import URI from 'urijs';
-import electron from 'electron';
 import { isEqual } from 'lodash';
+import electron from 'electron';
 
 export const enum EBit { ZERO, ONE }
 
@@ -34,7 +34,11 @@ export default class Utils {
   }
 
   static isDevMode() {
-    return electron.remote.process.env.NODE_ENV !== 'production';
+    return process.env.NODE_ENV !== 'production';
+  }
+
+  static isPreview(): boolean {
+    return electron.remote.process.env.SLOBS_PREVIEW;
   }
 
   /**
@@ -89,6 +93,23 @@ export default class Utils {
     const result: Dictionary<any> = {};
     Object.keys(patch).forEach(key => {
       if (!isEqual(obj[key], patch[key])) result[key] = patch[key];
+    });
+    return result as Partial<T>;
+  }
+
+  static getDeepChangedParams<T>(obj: T, patch: T): Partial<T> {
+    const result: Dictionary<any> = {};
+
+    if (obj == null) return patch;
+
+    Object.keys(patch).forEach(key => {
+      if (!isEqual(obj[key], patch[key])) {
+        if (patch[key] && typeof patch[key] === 'object' && !Array.isArray(patch[key])) {
+          result[key] = this.getDeepChangedParams(obj[key], patch[key]);
+        } else {
+          result[key] = patch[key];
+        }
+      }
     });
     return result as Partial<T>;
   }

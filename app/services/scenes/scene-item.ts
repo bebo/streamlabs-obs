@@ -1,4 +1,3 @@
-import { ScenesService, Scene, ISceneItem, ISceneItemApi, ISceneItemInfo } from './index';
 import { merge } from 'lodash';
 import { mutation, ServiceHelper } from '../stateful-service';
 import Utils from '../utils';
@@ -8,16 +7,27 @@ import { ScalableRectangle } from 'util/ScalableRectangle';
 import { Inject } from 'util/injector';
 import { TFormData } from '../../components/shared/forms/Input';
 import * as obs from '../obs-api';
-import { SelectionService } from '../selection/selection';
-import { IPartialSettings, IPartialTransform, ISceneItemSettings, ITransform } from './scenes-api';
-
+import { Selection, SelectionService } from 'services/selection';
+import {
+  IPartialSettings,
+  IPartialTransform,
+  ISceneItemSettings,
+  ITransform,
+  ScenesService,
+  Scene,
+  ISceneItem,
+  ISceneItemApi,
+  ISceneItemInfo,
+  TSceneNodeType
+} from './index';
+import { SceneItemNode } from './scene-node';
 /**
  * A SceneItem is a source that contains
  * all of the information about that source, and
  * how it fits in to the given scene
  */
 @ServiceHelper()
-export class SceneItem implements ISceneItemApi {
+export class SceneItem extends SceneItemNode implements ISceneItemApi {
 
   sourceId: string;
   name: string;
@@ -54,25 +64,23 @@ export class SceneItem implements ISceneItemApi {
 
   sceneItemState: ISceneItem;
 
-  @Inject() private scenesService: ScenesService;
+  @Inject() protected scenesService: ScenesService;
   @Inject() private sourcesService: SourcesService;
   @Inject() private videoService: VideoService;
-  @Inject() private selectionService: SelectionService;
 
-  constructor(private sceneId: string, sceneItemId: string, sourceId: string) {
-
-    const sceneSourceState = this.scenesService.state.scenes[sceneId].items.find(source => {
-      return source.sceneItemId === sceneItemId;
-    });
+  constructor(sceneId: string, sceneItemId: string, sourceId: string) {
+    super();
+    const sceneItemState = this.scenesService.state.scenes[sceneId].nodes.find(item => {
+      return item.id === sceneItemId;
+    }) as ISceneItem;
     const sourceState = this.sourcesService.state.sources[sourceId];
-    this.sceneItemState = sceneSourceState;
-    this.sceneId = sceneId;
+    this.sceneItemState = sceneItemState;
     Utils.applyProxy(this, sourceState);
     Utils.applyProxy(this, this.sceneItemState);
   }
 
   getModel(): ISceneItem & ISource {
-    return { ...this.sceneItemState, ...this.source.sourceState };
+    return { ...this.source.sourceState, ...this.sceneItemState };
   }
 
   getScene(): Scene {
@@ -289,6 +297,16 @@ export class SceneItem implements ISceneItemApi {
     });
   }
 
+  getItemIndex(): number {
+    return this.getScene()
+      .getItems()
+      .findIndex(sceneItemModel => sceneItemModel.id === this.id);
+  }
+
+  protected get state() {
+    return this.sceneItemState;
+  }
+
   /**
    * only for scene sources
    */
@@ -317,6 +335,11 @@ export class SceneItem implements ISceneItemApi {
       position: { x: rect.x, y: rect.y },
       scale: { x: rect.scaleX, y: rect.scaleY }
     });
+  }
+
+
+  getSelection() {
+    return this.getScene().getSelection(this.id);
   }
 
 
@@ -358,6 +381,7 @@ export class SceneItem implements ISceneItemApi {
 
     this.setTransform({ position: { x: newRect.x, y: newRect.y } });
   }
+
 
   @mutation()
   private UPDATE(patch: {sceneItemId: string} & IPartialSettings) {

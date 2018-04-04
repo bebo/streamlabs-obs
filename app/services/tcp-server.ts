@@ -41,11 +41,6 @@ interface IServer {
 
 
 export interface ITcpServersSettings {
-  tcp: {
-    enabled: boolean;
-    port: number;
-    allowRemote: boolean;
-  };
   namedPipe: {
     enabled: boolean;
     pipeName: string;
@@ -65,15 +60,11 @@ export interface ITcpServerServiceAPI {
   stopListening(): void;
 }
 
+const TCP_PORT = 28194;
 
 export class TcpServerService extends PersistentStatefulService<ITcpServersSettings> implements ITcpServerServiceAPI {
 
   static defaultState: ITcpServersSettings = {
-    tcp: {
-      enabled: false,
-      port: 59651,
-      allowRemote: false
-    },
     namedPipe: {
       enabled: true,
       pipeName: 'slobs'
@@ -90,6 +81,7 @@ export class TcpServerService extends PersistentStatefulService<ITcpServersSetti
   private clients: Dictionary<IClient> = {};
   private nextClientId = 1;
   private servers: IServer[] = [];
+  private isRequestsHandlingStopped = false;
 
   // enable to debug
   private enableLogs = false;
@@ -102,11 +94,24 @@ export class TcpServerService extends PersistentStatefulService<ITcpServersSetti
 
 
   listen() {
+    this.listenConnections(this.createTcpServer());
     if (this.state.namedPipe.enabled) this.listenConnections(this.createNamedPipeServer());
-    if (this.state.tcp.enabled) this.listenConnections(this.createTcpServer());
     if (this.state.websockets.enabled) this.listenConnections(this.createWebsoketsServer());
   }
 
+
+  /**
+   * stop handle any requests
+   * each API request will be responded with "API is busy" error
+   * this method doesn't stop event emitting
+   */
+  stopRequestsHandling() {
+    this.isRequestsHandlingStopped = true;
+  }
+
+  startRequestsHandling() {
+    this.isRequestsHandlingStopped = false;
+  }
 
 
   stopListening() {
@@ -127,40 +132,6 @@ export class TcpServerService extends PersistentStatefulService<ITcpServersSetti
   getApiSettingsFormData(): ISettingsSubCategory[] {
     const settings = this.state;
     return [
-      {
-        nameSubCategory: 'TCP',
-        codeSubCategory: 'tcp',
-        parameters: [
-          <IFormInput<boolean>> {
-            value: settings.tcp.enabled,
-            name: 'enabled',
-            description: 'Enabled',
-            type: 'OBS_PROPERTY_BOOL',
-            visible: true,
-            enabled: true,
-          },
-
-          <IFormInput<boolean>> {
-            value: settings.tcp.allowRemote,
-            name: 'allowRemote',
-            description: 'Allow Remote Connections',
-            type: 'OBS_PROPERTY_BOOL',
-            visible: true,
-            enabled: settings.tcp.enabled,
-          },
-
-          <IFormInput<number>> {
-            value: settings.tcp.port,
-            name: 'port',
-            description: 'Port',
-            type: 'OBS_PROPERTY_INT',
-            minVal: 0,
-            maxVal: 65535,
-            visible: true,
-            enabled: settings.tcp.enabled,
-          }
-        ]
-      },
       {
         nameSubCategory: 'Named Pipe',
         codeSubCategory: 'namedPipe',
@@ -247,8 +218,7 @@ export class TcpServerService extends PersistentStatefulService<ITcpServersSetti
 
   private createTcpServer(): IServer {
     const server = net.createServer();
-    const settings = this.state.tcp;
-    server.listen(settings.port, settings.allowRemote ? WILDCARD_HOST_NAME : LOCAL_HOST_NAME);
+    server.listen(TCP_PORT, LOCAL_HOST_NAME);
     return {
       nativeServer: server,
       close() {
@@ -298,6 +268,17 @@ export class TcpServerService extends PersistentStatefulService<ITcpServersSetti
 
   private onRequestHandler(client: IClient, data: string) {
     this.log('tcp request', data);
+
+    if (this.isRequestsHandlingStopped) {
+
+      this.sendResponse(client, this.jsonrpcService.createError(null, {
+        code: E_JSON_RPC_ERROR.INTERNAL_JSON_RPC_ERROR,
+        message: 'API server is busy. Try again later'
+      }));
+
+      return;
+    }
+
     const requests = data.split('\n');
     requests.forEach(requestString => {
       if (!requestString) return;

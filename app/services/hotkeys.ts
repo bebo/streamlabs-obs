@@ -63,10 +63,10 @@ const HOTKEY_ACTIONS: Dictionary<IHotkeyAction[]> = {
     {
       name: 'TOGGLE_START_STREAMING',
       description: () => 'Start Streaming',
-      down: () => getStreamingService().startStreaming(),
+      down: () => getStreamingService().toggleStreaming(),
       isActive: () => {
         const streamingService = getStreamingService();
-        return streamingService.isStreaming || !!streamingService.delaySecondsRemaining;
+        return streamingService.isStreaming;
       }
     },
     {
@@ -74,28 +74,23 @@ const HOTKEY_ACTIONS: Dictionary<IHotkeyAction[]> = {
       description: () => 'Stop Streaming',
       down: () => {
         const streamingService = getStreamingService();
-
-        if (streamingService.isStreaming) {
-          streamingService.stopStreaming();
-        } else {
-          streamingService.discardStreamDelay();
-        }
+        streamingService.toggleStreaming();
       },
       isActive: () => {
         const streamingService = getStreamingService();
-        return !streamingService.isStreaming && !streamingService.delaySecondsRemaining;
+        return !streamingService.isStreaming;
       }
     },
     {
       name: 'TOGGLE_START_RECORDING',
       description: () => 'Start Recording',
-      down: () => getStreamingService().startRecording(),
+      down: () => getStreamingService().toggleRecording(),
       isActive: () => getStreamingService().isRecording
     },
     {
       name: 'TOGGLE_STOP_RECORDING',
       description: () => 'Stop Recording',
-      down: () => getStreamingService().stopRecording(),
+      down: () => getStreamingService().toggleRecording(),
       isActive: () => !getStreamingService().isRecording
     }
   ],
@@ -358,7 +353,7 @@ export class HotkeysService extends StatefulService<IHotkeysServiceState> {
 
   getSceneItemsHotkeys(sceneId: string): Hotkey[] {
     const scene = this.scenesService.getScene(sceneId);
-    const sceneItemsIds = scene.items.map(item => item.sceneItemId);
+    const sceneItemsIds = scene.nodes.map(item => item.id);
     return this.getHotkeys().filter(hotkey => sceneItemsIds.includes(hotkey.sceneItemId));
   }
 

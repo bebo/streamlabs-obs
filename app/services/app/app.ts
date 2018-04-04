@@ -15,9 +15,9 @@ import { IpcServerService } from '../ipc-server';
 import { TcpServerService } from '../tcp-server';
 import { StreamlabelsService } from '../streamlabels';
 import { PerformanceMonitorService } from '../performance-monitor';
-import { SelectionService } from 'services/selection';
 import { SceneCollectionsService } from 'services/scene-collections';
 import { FileManagerService } from 'services/file-manager';
+import { PatchNotesService } from 'services/patch-notes';
 
 interface IAppState {
   loading: boolean;
@@ -35,6 +35,7 @@ export class AppService extends StatefulService<IAppState> {
   @Inject() userService: UserService;
   @Inject() shortcutsService: ShortcutsService;
   @Inject() streamInfoService: StreamInfoService;
+  @Inject() patchNotesService: PatchNotesService;
 
   static initialState: IAppState = {
     loading: true,
@@ -63,7 +64,7 @@ export class AppService extends StatefulService<IAppState> {
     this.userService;
 
     this.sceneCollectionsService.initialize().then(() => {
-      this.onboardingService.startOnboardingIfRequired();
+      const onboarded = this.onboardingService.startOnboardingIfRequired();
 
       electron.ipcRenderer.on('shutdown', () => {
         electron.ipcRenderer.send('acknowledgeShutdown');
@@ -80,6 +81,9 @@ export class AppService extends StatefulService<IAppState> {
 
       this.ipcServerService.listen();
       this.tcpServerService.listen();
+
+      this.patchNotesService.showPatchNotesIfRequired(onboarded);
+
       this.FINISH_LOADING();
     });
   }
@@ -95,12 +99,11 @@ export class AppService extends StatefulService<IAppState> {
   private shutdownHandler() {
     this.START_LOADING();
 
+    this.ipcServerService.stopListening();
+    this.tcpServerService.stopListening();
+
     window.setTimeout(async () => {
       await this.sceneCollectionsService.deinitialize();
-
-      this.ipcServerService.stopListening();
-      this.tcpServerService.stopListening();
-
       this.performanceMonitorService.stop();
       this.videoService.destroyAllDisplays();
       this.scenesTransitionsService.reset();
